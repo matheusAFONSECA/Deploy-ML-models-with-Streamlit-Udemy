@@ -1,86 +1,27 @@
 import streamlit as st
-import pandas as pd
 import numpy as np
-from sklearn.preprocessing import LabelEncoder, OrdinalEncoder
-from sklearn.ensemble import GradientBoostingClassifier
-
-DATA = "03_cache\mushroom_predictor\data\mushrooms.csv"
-COLS = [
-    "class",
-    "odor",
-    "gill-size",
-    "gill-color",
-    "stalk-surface-above-ring",
-    "stalk-surface-below-ring",
-    "stalk-color-above-ring",
-    "stalk-color-below-ring",
-    "ring-type",
-    "spore-print-color",
-]
+from joblib import load
 
 
-@st.cache_data(show_spinner="Fetching data...")
-def read_data(data, cols):
-    df = pd.read_csv(data)
-    df = df[cols]
+@st.cache_resource(show_spinner="Loading model...")
+def load_model():
+    pipe = load("03_cache\mushroom_classifier_optimized\model\pipe.joblib")
 
-    return df
-
-
-@st.cache_resource
-def get_target_encoder(data):
-    le = LabelEncoder()
-    le.fit(data["class"])
-
-    return le
-
-
-@st.cache_resource
-def get_features_encoder(data):
-    oe = OrdinalEncoder()
-    X_cols = data.columns[1:]
-    oe.fit(data[X_cols])
-
-    return oe
-
-
-@st.cache_data(show_spinner="Encoding data...")
-def encode_data(data, _X_encoder, _y_encoder):
-    data["class"] = _y_encoder.transform(data["class"])
-
-    X_cols = data.columns[1:]
-    data[X_cols] = _X_encoder.transform(data[X_cols])
-
-    return data
-
-
-@st.cache_resource(show_spinner="Training model...")
-def train_model(data):
-    X = data.drop(["class"], axis=1)
-    y = data["class"]
-
-    gbc = GradientBoostingClassifier(max_depth=5, random_state=42)
-
-    gbc.fit(X, y)
-
-    return gbc
+    return pipe
 
 
 @st.cache_data(show_spinner="Making a prediction...")
-def make_prediction(_model, _X_encoder, X_pred):
+def make_prediction(_pipe, X_pred):
     features = [each[0] for each in X_pred]
     features = np.array(features).reshape(1, -1)
-    encoded_features = _X_encoder.transform(features)
 
-    pred = _model.predict(encoded_features)
+    pred = _pipe.predict(features)
 
     return pred[0]
 
 
 if __name__ == "__main__":
     st.title("Mushroom classifier 🍄")
-
-    df = read_data(DATA, COLS)
 
     st.subheader("Step 1: Select the values for prediction")
 
@@ -189,12 +130,7 @@ if __name__ == "__main__":
     pred_btn = st.button("Predict", type="primary")
 
     if pred_btn:
-        le = get_target_encoder(df)
-        oe = get_features_encoder(df)
-
-        encoded_df = encode_data(df, oe, le)
-
-        gbc = train_model(encoded_df)
+        pipe = load_model()
 
         x_pred = [
             odor,
@@ -208,10 +144,12 @@ if __name__ == "__main__":
             spore_print_color,
         ]
 
-        pred = make_prediction(gbc, oe, x_pred)
+        pred = make_prediction(pipe, x_pred)
 
         nice_pred = (
-            "The mushroom is poisonous 🤢" if pred == 1 else "The mushroom is edible 🍴"
+            "The mushroom is poisonous 🤢"
+            if pred == "p"
+            else "The mushroom is edible 🍴"
         )
 
         st.write(nice_pred)
