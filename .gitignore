@@ -172,3 +172,5 @@ cython_debug/
 
 scripts/
 StreamlitDeployVenv/
+04_session_state_management\capstone_project\data\us-dealers-used.csv
+04_session_state_management\capstone_project\data\ca-dealers-used.csv
